@@ -79,12 +79,12 @@ def download_file(url, local_path):
     except Exception as e:
         print(f"Error downloading {url}: {e}")
 
-def remove_supported_extensions(file_name):
-    """Remove supported file extensions from the file name"""
-    for ext in SUPPORTED_FILE_TYPES:
-        if file_name.endswith(ext):
-            return file_name[:-len(ext)]  # Strip the extension
-    return file_name
+# def remove_supported_extensions(file_name):
+#     """Remove supported file extensions from the file name"""
+#     for ext in SUPPORTED_FILE_TYPES:
+#         if file_name.endswith(ext):
+#             return file_name[:-len(ext)]  # Strip the extension
+#     return file_name
 
 def upload_to_s3(file_path, bucket_name, s3_key):
     """Upload file to AWS S3"""
@@ -115,10 +115,10 @@ def process_files_and_upload(huggingface_url, bucket_name):
             print(f"File {local_path} successfully downloaded.")
             
             # Strip any supported file extensions from the file name
-            file_name_without_extension = remove_supported_extensions(file_name)
+            # file_name_without_extension = remove_supported_extensions(file_name)
             
             # Upload to S3 with the file name without extension
-            upload_to_s3(local_path, bucket_name, f"{file_name_without_extension}")
+            upload_to_s3(local_path, bucket_name, f"{file_name}")
             
             # Delete the local file
             os.remove(local_path)
