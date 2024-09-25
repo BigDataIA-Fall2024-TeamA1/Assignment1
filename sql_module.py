@@ -1,6 +1,7 @@
 import os
 import pyodbc
 from dotenv import load_dotenv
+import json
 
 def get_metadata_from_sql():
     # Load environment variables from .env file
@@ -97,3 +98,102 @@ def update_metadata_steps(task_id, new_steps):
         connection.close()
 
     return success
+
+def insert_evaluation(task_id, is_correct, user_feedback=None):
+    """
+    Inserts a new evaluation record into the Evaluations table.
+
+    Parameters:
+    - task_id (str): The unique identifier for the task.
+    - is_correct (bool): Whether the OpenAI response was correct.
+    - user_feedback (str, optional): Additional feedback from the user.
+
+    Returns:
+    - bool: True if insertion was successful, False otherwise.
+    """
+    load_dotenv()
+
+    # Read SQL Server connection settings from environment variables
+    server = os.getenv('SQL_SERVER')        # Server name
+    database = os.getenv('SQL_DATABASE')    # Database name
+    username = os.getenv('SQL_USER')        # SQL username
+    password = os.getenv('SQL_PASSWORD')    # SQL password
+    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+
+    try:
+        # Establish connection
+        connection = pyodbc.connect(
+            f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};'
+        )
+        cursor = connection.cursor()
+
+        # Insert into Evaluations
+        cursor.execute(
+            '''
+            INSERT INTO Evaluations (task_id, is_correct, user_feedback)
+            VALUES (?, ?, ?)
+            ''',
+            task_id,
+            int(is_correct),  # Convert boolean to integer (1 or 0)
+            user_feedback
+        )
+        connection.commit()
+        success = True
+
+    except Exception as e:
+        print(f"Error inserting evaluation: {e}")
+        success = False
+    finally:
+        # Ensure the connection is closed
+        cursor.close()
+        connection.close()
+
+    return success
+
+def get_evaluations():
+    """
+    Retrieves all evaluation records from the Evaluations table.
+
+    Returns:
+    - list of dict: Each dictionary represents an evaluation record.
+    """
+    load_dotenv()
+
+    # Read SQL Server connection settings from environment variables
+    server = os.getenv('SQL_SERVER')        # Server name
+    database = os.getenv('SQL_DATABASE')    # Database name
+    username = os.getenv('SQL_USER')        # SQL username
+    password = os.getenv('SQL_PASSWORD')    # SQL password
+    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+
+    try:
+        # Establish connection
+        connection = pyodbc.connect(
+            f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};'
+        )
+        cursor = connection.cursor()
+
+        # Fetch all evaluations
+        cursor.execute('SELECT evaluation_id, task_id, is_correct, user_feedback, evaluation_timestamp FROM Evaluations')
+        rows = cursor.fetchall()
+
+        # Organize into list of dictionaries
+        evaluations = []
+        for row in rows:
+            evaluations.append({
+                'evaluation_id': row.evaluation_id,
+                'task_id': row.task_id,
+                'is_correct': bool(row.is_correct),
+                'user_feedback': row.user_feedback,
+                'evaluation_timestamp': row.evaluation_timestamp
+            })
+
+    except Exception as e:
+        print(f"Error retrieving evaluations: {e}")
+        evaluations = []
+    finally:
+        # Ensure the connection is closed
+        cursor.close()
+        connection.close()
+
+    return evaluations
