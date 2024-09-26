@@ -57,7 +57,7 @@ The project architecture consists of:
 - upload_data_to_s3.py: Script for uploading files to AWS S3.
 - upload_metadata_rdb.py: Script for uploading metadata to the SQL Server.
 
-##Usage
+## Usage
 
 - Upload Data: Use the Streamlit app to upload task files and metadata.
 - Data Processing: The backend Python modules handle the data processing and storage.
