@@ -1,13 +1,13 @@
 import os
 import pyodbc
 from dotenv import load_dotenv
-import json
 
 def get_metadata_from_sql():
-    # Load environment variables from .env file
+    # Load .env file
     load_dotenv()
 
-    # Read SQL Server connection settings from environment variables
+    # SQL Server connection settings
+    ##server = os.getenv('SQL_SERVER')
     server = os.getenv('SQL_SERVER')        # Server name
     database = os.getenv('SQL_DATABASE')    # Database name
     username = os.getenv('SQL_USER')        # SQL username
@@ -18,12 +18,11 @@ def get_metadata_from_sql():
     connection = pyodbc.connect(
         f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};'
     )
-    
+
     cursor = connection.cursor()
     
-    # Execute query to fetch necessary fields
     cursor.execute('''
-        SELECT task_id, Question, Final_answer, Steps, Number_of_steps, 
+        SELECT task_id, Question, file_name, Final_answer, Steps, Number_of_steps, 
                How_long_did_this_take, Tools, Number_of_tools 
         FROM Tasks
     ''')
@@ -35,6 +34,7 @@ def get_metadata_from_sql():
         metadata.append({
             'task_id': row.task_id,
             'Question': row.Question,
+            'file_name': row.file_name,
             'Final answer': row.Final_answer,
             'Steps': row.Steps,
             'Number of steps': row.Number_of_steps,
@@ -119,6 +119,9 @@ def insert_evaluation(task_id, is_correct, user_feedback=None):
     username = os.getenv('SQL_USER')        # SQL username
     password = os.getenv('SQL_PASSWORD')    # SQL password
     driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+
+    # Establish connection
+    
 
     try:
         # Establish connection

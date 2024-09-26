@@ -1,31 +1,39 @@
-# openai_module.py
-import openai
+
+from openai import OpenAI
 import os
 from dotenv import load_dotenv
 
-# 加載 .env 文件中的環境變數
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+# Load environment variables
 load_dotenv()
 
-def send_to_openai(prompt):
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+# Set the OpenAI API key
+
+def send_to_openai(question, file_content=None):
+    # Prepare the prompt
+    prompt = f"Question: {question}\n\n"
     
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-4o",  # 修正模型名稱
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是一個有幫助的 AI 助手。請根據提供的檔案內容回答問題，並以繁體中文作答。"
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=1500,  # 根據需要調整
-            temperature=0.7,
-        )
-        advice = response.choices[0].message.content  # 正確訪問訊息內容
-        return advice
-    except Exception as e:
-        return f"與 OpenAI 通信時發生錯誤: {e}"
+    if file_content:
+        # If the file content is too long, summarize or trim it
+        if len(file_content) > 1000:
+            file_content = file_content[:1000] + "\n\n... (content truncated)"
+        # Format the file content clearly
+        prompt += f"Attached File Content:\n{file_content}"
+    else:
+        prompt += "No file content provided."
+    
+    # Call OpenAI API with the prompt using the updated API format
+    response = client.chat.completions.create(
+        model="gpt-4o",  
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=300  # Increase the max_tokens to allow a longer response
+    )
+
+    # Extract the assistant's message content from the response
+    advice = response.choices[0].message.content
+    return advice
