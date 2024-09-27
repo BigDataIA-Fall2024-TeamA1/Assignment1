@@ -6,6 +6,7 @@ from sql_module import (
     insert_evaluation,
     get_evaluations
 )
+from collections import Counter
 from openai_module import send_to_openai
 from aws_module import get_files_from_s3
 import tempfile
@@ -20,6 +21,7 @@ from dotenv import load_dotenv
 import boto3
 import easyocr
 import base64
+import re
 
 # Load environment variables
 load_dotenv()
@@ -587,14 +589,84 @@ with st.container():
             }
         )
         fig_pie.update_layout(
-            paper_bgcolor='#000000',
-            plot_bgcolor='#000000',
-            font=dict(color='#ffffff'),
-            title_font=dict(size=20, color='#ffffff')
+            paper_bgcolor='#000000',  # Black background for the chart area
+            plot_bgcolor='#000000',   # Black background for the plot area
+            font=dict(color='#ffffff'),  # White font color for chart text
+            title_font=dict(size=20, color='#ffffff')  # White for title
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
-        # Additional charts and analysis can be added here
+        # New Chart 1: Top 5 Most Common Feedback Themes
+        # Simple text processing for feedback
+        feedback_text = " ".join(eval_df['user_feedback'].dropna().tolist())
+        # Remove non-alphabetic characters and lowercase
+        words = re.findall(r'\b\w+\b', feedback_text.lower())
+        # Define a list of stopwords (extend as needed)
+        stopwords = set([
+            'the', 'and', 'is', 'in', 'it', 'of', 'to', 'a', 'for', 'on',
+            'with', 'as', 'this', 'that', 'but', 'be', 'have', 'are', 'was',
+            'were', 'or', 'an', 'at', 'by', 'from', 'not', 'your', 'you'
+        ])
+        filtered_words = [word for word in words if word not in stopwords]
+        word_counts = Counter(filtered_words)
+        top_feedback = word_counts.most_common(5)
+        feedback_labels, feedback_values = zip(*top_feedback) if top_feedback else ([], [])
+
+        if feedback_labels:
+            fig_feedback = px.bar(
+                x=feedback_labels,
+                y=feedback_values,
+                title='Top 5 Most Common Feedback Themes',
+                labels={'x': 'Feedback Theme', 'y': 'Frequency'},
+                template='plotly_white',
+                color=feedback_labels,
+                color_discrete_map={
+                    'incorrect': COLOR_PALETTE['red'],
+                    'missing': COLOR_PALETTE['blue'],
+                    'confusing': COLOR_PALETTE['orange'],
+                    'too': COLOR_PALETTE['purple'],
+                    'details': COLOR_PALETTE['cyan']
+                }
+            )
+            fig_feedback.update_layout(
+                paper_bgcolor='#000000',  # Black background for the chart area
+                plot_bgcolor='#000000',   # Black background for the plot area
+                font=dict(color='#ffffff'),  # White font color for chart text
+                title_font=dict(size=20, color='#ffffff')  # White for title
+            )
+            st.plotly_chart(fig_feedback, use_container_width=True)
+        else:
+            st.write("No feedback available to display common themes.")
+
+        # New Chart 2: Average Time Between Evaluations
+        # Calculate time differences
+        if 'evaluation_timestamp' in eval_df.columns:
+            eval_df['evaluation_timestamp'] = pd.to_datetime(eval_df['evaluation_timestamp'])
+            eval_df = eval_df.sort_values('evaluation_timestamp')
+            eval_df['time_diff'] = eval_df['evaluation_timestamp'].diff().dt.total_seconds() / 60  # in minutes
+            average_time_diff = eval_df['time_diff'].mean()
+            st.subheader("Average Time Between Evaluations")
+            if pd.notnull(average_time_diff):
+                fig_time = px.histogram(
+                eval_df,
+                x='time_diff',
+                nbins=30,
+                title='Distribution of Time Differences Between Evaluations',
+                labels={'time_diff': 'Time Difference (minutes)'},
+                template='plotly_white',
+                color_discrete_sequence=['#ff0000']  # Red color for bars
+            )
+                fig_time.update_layout(
+                paper_bgcolor='#000000',  # Black background for the chart area
+                plot_bgcolor='#000000',   # Black background for the plot area
+                font=dict(color='#ffffff'),  # White font color for chart text
+                title_font=dict(size=20, color='#ffffff')  # White for title
+            )
+                st.plotly_chart(fig_time, use_container_width=True)
+            else:
+                st.write("Not enough data to calculate time differences.")
+        else:
+            st.write("Evaluation timestamps not available for time-based analysis.")
 
         # Table of Evaluations
         st.subheader("Detailed Evaluations")
