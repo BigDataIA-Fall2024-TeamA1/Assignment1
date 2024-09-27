@@ -1,1 +1,2 @@
-.kovan_test
+# Ignore virtual environment
+kovan_test/
