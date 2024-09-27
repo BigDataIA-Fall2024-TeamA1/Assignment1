@@ -9,7 +9,6 @@ from sql_module import (
 from openai_module import send_to_openai
 from aws_module import get_files_from_s3
 import tempfile
-import easyocr
 import PyPDF2
 import docx
 import pandas as pd
@@ -19,7 +18,8 @@ import openpyxl
 import plotly.express as px
 from dotenv import load_dotenv
 import boto3
-import easyocr  # Added EasyOCR
+import easyocr
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -42,7 +42,7 @@ SUPPORTED_EXTENSIONS = [
 ]
 
 # Initialize EasyOCR reader
-reader = easyocr.Reader(['en'], gpu=False)  # Set gpu=True if you have a compatible GPU
+reader = easyocr.Reader(['en'], gpu=False)
 
 # Function to extract text from different file types
 def extract_text_from_file(file_path):
@@ -75,7 +75,8 @@ def extract_text_from_file(file_path):
         elif ext == '.xlsx':
             try:
                 df = pd.read_excel(file_path, engine='openpyxl')
-                st.dataframe(df.head())
+                # Optionally display the dataframe
+                # st.dataframe(df.head())
 
                 # Convert the dataframe to a CSV string
                 csv_representation = df.to_csv(index=False)
@@ -96,14 +97,13 @@ def extract_text_from_file(file_path):
                 return f"Error processing image file: {e}"
 
         elif ext == '.py':
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    return f.read()
-            except UnicodeDecodeError:
-                with open(file_path, 'r', encoding='latin-1') as f:
-                    return f.read()
-            except Exception as e:
-                return f"Error processing .py file: {e}"
+            return extract_text_from_py(file_path)
+
+        elif ext == '.zip':
+            return extract_text_from_zip(file_path)
+
+        elif ext == '.pdb':
+            return extract_text_from_pdb(file_path)
 
         elif ext == '.pptx':
             from pptx import Presentation
@@ -115,33 +115,48 @@ def extract_text_from_file(file_path):
                         text_runs.append(shape.text)
             return "\n".join(text_runs)
 
-        elif ext == '.zip':
-            text = ""
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    zip_ref.extractall(tmpdir)
-                    for root, _, files in os.walk(tmpdir):
-                        for file in files:
-                            file_path_inner = os.path.join(root, file)
-                            if os.path.splitext(file_path_inner)[1].lower() in SUPPORTED_EXTENSIONS:
-                                extracted_text = extract_text_from_file(file_path_inner)
-                                text += extracted_text + "\n"
-                            else:
-                                text += f"Skipped unsupported file: {file_path_inner}\n"
-            return text
-
-        elif ext == '.pdb':
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    return f.read()
-            except Exception as e:
-                return f"Error processing .pdb file: {e}"
-
         else:
             return f"Unsupported file type: {ext}"
 
     except Exception as e:
         return f"Error processing file: {e}"
+
+# Helper function to extract text from .py files
+def extract_text_from_py(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except UnicodeDecodeError:
+        with open(file_path, 'r', encoding='latin-1') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error processing .py file: {e}"
+
+# Helper function to extract text from .zip files
+def extract_text_from_zip(file_path):
+    text = ""
+    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_ref.extractall(tmpdir)
+            for root, _, files in os.walk(tmpdir):
+                for file in files:
+                    file_path_inner = os.path.join(root, file)
+                    _, ext_inner = os.path.splitext(file_path_inner)
+                    ext_inner = ext_inner.lower()
+                    if ext_inner in SUPPORTED_EXTENSIONS:
+                        extracted_text = extract_text_from_file(file_path_inner)
+                        text += f"Extracted from {file}:\n{extracted_text}\n"
+                    else:
+                        text += f"Skipped unsupported file: {file}\n"
+    return text
+
+# Helper function to extract text from .pdb files
+def extract_text_from_pdb(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error processing .pdb file: {e}"
 
 # Initialize Streamlit session state
 def initialize_session_state():
@@ -288,17 +303,15 @@ with st.container():
     for file_name in s3_files:
         # Extract task_id and file extension
         file_base_name, file_ext = os.path.splitext(file_name)
-        if file_base_name in metadata_task_ids:
-            if file_base_name not in task_files_mapping:
-                task_files_mapping[file_base_name] = []
-            task_files_mapping[file_base_name].append({'file_name': file_name, 'file_ext': file_ext.lower()})
+        if file_base_name not in task_files_mapping:
+            task_files_mapping[file_base_name] = []
+        task_files_mapping[file_base_name].append({'file_name': file_name, 'file_ext': file_ext.lower()})
 
-    # 3. Match metadata task IDs with task IDs that have files
-    matched_task_ids = list(task_files_mapping.keys())
+    # 3. Include all task IDs from metadata
+    all_task_ids = metadata_task_ids  # Include all task IDs, even those without files
 
     # 4. Select Task ID to query OpenAI
-    # Do not select a default value; user must select a task ID
-    selected_task_id = st.selectbox("Select a Task ID to Process", [""] + matched_task_ids)
+    selected_task_id = st.selectbox("Select a Task ID to Process", [""] + all_task_ids)
     st.session_state.selected_task_id = selected_task_id  # Store in session state
 
     if selected_task_id:
