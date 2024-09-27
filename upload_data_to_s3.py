@@ -94,6 +94,19 @@ def upload_to_s3(file_path, bucket_name, s3_key):
     except Exception as e:
         print(f"Error uploading {file_path} to S3: {e}")
 
+def upload_feedback_to_s3(file_name, content):
+    """将用户反馈上传到S3"""
+    try:
+        response = s3_client.put_object(Bucket=bucket_name, Key=file_name, Body=content)
+        print(f"Feedback uploaded to S3 as {file_name}")
+        # 验证上传结果
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print("Upload Successful!")
+        else:
+            print("Upload Failed!")
+    except Exception as e:
+        print(f"Failed to upload feedback to S3: {e}")
+
 def process_files_and_upload(huggingface_url, bucket_name):
     """Download Hugging Face files and upload to S3"""
     file_urls = get_file_urls_from_li_tags(huggingface_url)
