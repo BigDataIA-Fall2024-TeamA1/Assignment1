@@ -1,0 +1,73 @@
+# Python specific
+__pycache__/
+*.py[cod]
+*.ipynb_checkpoints
+*.egg-info/
+*.egg
+*.pyo
+*.pyd
+*.whl
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Virtual Environment (for any local virtual environments)
+env/
+venv/
+ENV/
+.venv/
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*.so
+*.dll
+*.dylib
+*.a
+
+# Virtual environment
+*.env
+*.venv
+env/
+venv/
+ENV/
+.venv/
+
+# Streamlit configuration
+.streamlit/
+# Ignore Streamlit specific configuration files (e.g., credentials.toml, secrets.toml)
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Logs and debug files
+*.log
+
+# Environment variables and secrets
+.env
+*.env
+.env.*
+
+# Jupyter Notebook temporary files
+*.ipynb_checkpoints
+
+# Data files (optional)
+*.csv
+*.xls
+*.xlsx
+*.json
+*.parquet
+*.hdf5
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swm
+*.swo
+*.swn
+
+# Ignore IDE specific files
+.vscode/
+.idea/
