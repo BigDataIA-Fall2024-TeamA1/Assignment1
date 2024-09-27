@@ -101,3 +101,10 @@ Shraddha Bhandarkar:
 4. Team Support: Assisted team members with integrating file handling functionalities and setting up the project environment (2-3 hours). 
 5. Documentation: Created detailed documentation, including a README file, outlining the file handling mechanism and project setup instructions (2 hours). 
 6. Workflow Design: Developed a workflow diagram illustrating the prompt processing and file handling architecture (1 hour).
+
+Kefan Zhang:
+1. Set up and configured a SQL Server instance within a Docker container on macOS, ensuring correct port configuration and testing database connectivity. This allowed for seamless data storage and interaction between the backend and the database.（5h)
+2. Developed Python test scripts to execute SQL queries for data retrieval and updates. The scripts were designed to efficiently handle data transactions between the application and SQL Server, ensuring smooth data processing and accuracy.(1h)
+3. Enabled dynamic updates to AnnotatorSteps, allowing users to modify steps in real-time through an interactive interface. Upon modification, the system automatically triggered a model re-evaluation based on the newly provided annotation steps. This continuous            feedback loop ensured that the model was iteratively improved and fine-tuned based on the evolving requirements of the data annotation process.(>29h)
+4. Integrated visualization tools in Streamlit to enhance user experience. This included real-time feedback visualization, allowing users to see how their annotations and modifications impacted model performance. (>15h)
+5. Created Codelabs to guide users through the process of modifying annotator steps, understanding the underlying model, and evaluating the model’s performance based on their updates.(5h)
