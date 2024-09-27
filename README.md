@@ -24,7 +24,7 @@ c. Kefan Zhang: 33%
 
 ## Link to streamlit public cloud
 
-[Click it to access streamlit public cloud](https://teams.microsoft.com/l/message/48:notes/1727471199606?context=%7B%22contextType%22%3A%22chat%22%7D) 
+[Click it to access streamlit public cloud](https://cwmip3dugo4l2udm3gfs3l.streamlit.app/) 
 
 ## Overview
 
