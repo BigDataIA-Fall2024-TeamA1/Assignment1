@@ -85,13 +85,14 @@ The project architecture consists of:
 - Data Matching: Match metadata in SQL Server with task files in S3 for further processing.
 
 ## Contributions and Time
+
 Chiu Meng Che:
-1.Use Beautiful Soup to directly import files from Hugging Face into AWS S3 using Python (6-8 hours).
-2.Convert the metadata into JSON format and use Python to import it into SQL Server (3-4 hours).
-3.Use the Streamlit package in Python to combine the metadata and data, and display them on Streamlit (24-28 hours).
-4.Assist team members with the creation of the annotator part and visualizations (24-28 hours).
-5.Create a workflow graph (1 hour).
-6.Create a README file (2 hours).
+1. Use Beautiful Soup to directly import files from Hugging Face into AWS S3 using Python (6-8 hours).
+2. Convert the metadata into JSON format and use Python to import it into SQL Server (3-4 hours).
+3. Use the Streamlit package in Python to combine the metadata and data, and display them on Streamlit (24-28 hours).
+4. Assist team members with the creation of the annotator part and visualizations (24-28 hours).
+5. Create a workflow graph (1 hour).
+6. Create a README file (2 hours).
 
 Shraddha Bhandarkar: 
 1. Fetch and Process Prompts from Metadata: Implemented functionality to extract prompts from metadata and route them to the OpenAI API for processing (6-8 hours). 
