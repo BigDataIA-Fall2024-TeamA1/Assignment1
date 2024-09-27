@@ -1,4 +1,4 @@
-# Data Processing and Analysis with Streamlit, AWS S3, SQL Server, and OpenAI API
+# AI-Driven DataStream Platform with Streamlit, S3 & SQL Integration
 
 This project is a data processing and analysis pipeline that integrates various technologies including AWS S3, SQL Server, Streamlit, and OpenAI's API. It enables the storage, retrieval, and processing of both structured metadata and unstructured task files, and provides a user interface for interacting with these data sources.
 
@@ -59,7 +59,7 @@ The project architecture consists of:
 - upload_data_to_s3.py: Script for uploading files to AWS S3.
 - upload_metadata_rdb.py: Script for uploading metadata to the SQL Server.
 
-##Usage
+## Usage
 
 - Upload Data: Use the Streamlit app to upload task files and metadata.
 - Data Processing: The backend Python modules handle the data processing and storage.
