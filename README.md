@@ -16,9 +16,9 @@ c. Kefan Zhang: 33%
 
 ## Codelabs
 
-## Video of the submission
+## Video 
 
-[Click it](https://youtu.be/pWp70t16a5o)
+[Click it to watch it](https://youtu.be/pWp70t16a5o)
 
 ## Link to streamlit public cloud
 
@@ -92,9 +92,8 @@ Chiu Meng Che:
 4.Assist team members with the creation of the annotator part and visualizations (24-28 hours).
 5.Create a workflow graph (1 hour).
 6.Create a README file (2 hours).
-Shraddha Bhandarkar:
-Shraddha Bhandarkar:
- 
+
+Shraddha Bhandarkar: 
 1. Fetch and Process Prompts from Metadata: Implemented functionality to extract prompts from metadata and route them to the OpenAI API for processing (6-8 hours). 
 2. File Handling Based on Extension: Developed a system to detect and process files associated with prompts based on their extensions. Supported file types included `.png`, `.jpeg`, `.jpg`, `.txt`, `.xlsx`, `.csv`, `.pptx`, `.docx`, `.py`, `.zip`, and `.pdb`, with         specific handling logic for each (24-48 hours). 
 3. Project Setup with Poetry: Configured the project using Poetry for efficient dependency management and environment setup, ensuring consistency across development and deployment environments (3-4 hours).
