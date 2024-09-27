@@ -1,500 +1,593 @@
-# import streamlit as st
-# from sql_module import get_metadata_from_sql
-# from aws_module import get_files_from_s3
-# from openai_module import send_to_openai
-# import os
-# from dotenv import load_dotenv
-
-# # Load environment variables
-# load_dotenv()
-
-# # Streamlit App
-# st.title("Task ID Matcher")
-
-# # Get AWS bucket name from .env
-# bucket_name = os.getenv('AWS_BUCKET')
-
-# # 1. Fetch metadata task_ids and questions from SQL Server
-# metadata = get_metadata_from_sql()
-# metadata_task_ids = [record['task_id'] for record in metadata]
-# questions_dict = {record['task_id']: record['Question'] for record in metadata}
-# st.write("Metadata Task IDs:", metadata_task_ids)
-
-# # 2. Fetch files from AWS S3
-# s3_files = get_files_from_s3(bucket_name)
-# st.write("S3 Files:", s3_files)
-
-# # 3. Match Task ID between metadata and S3
-# def match_task_ids(metadata_task_ids, s3_files):
-#     matched_ids = [task_id for task_id in metadata_task_ids if task_id in s3_files]
-#     return matched_ids
-
-# matched_task_ids = match_task_ids(metadata_task_ids, s3_files)
-# st.write("Matched Task IDs:", matched_task_ids)
-
-# # 4. Select Task ID to query OpenAI
-# selected_task_id = st.selectbox("Select a Task ID to process", matched_task_ids)
-
-# # 5. Send question to OpenAI
-# if st.button("Send Question to OpenAI"):
-#     if selected_task_id:
-#         question = questions_dict[selected_task_id]
-#         result = send_to_openai(question)
-#         st.write("OpenAI Result:", result)
-#     else:
-#         st.write("No Task ID selected or matched.")
-
-
-
-
-
-
-
-
-# import streamlit as st
-# from sql_module import (
-#     get_metadata_from_sql, 
-#     update_metadata_steps, 
-#     insert_evaluation, 
-#     get_evaluations
-# )
-# from aws_module import get_files_from_s3, download_file_from_s3
-# from openai_module import send_to_openai
-# import os
-# from dotenv import load_dotenv
-# import tempfile
-# import PyPDF2
-# import docx
-# import pandas as pd
-# from PIL import Image
-# import pytesseract
-# import plotly.express as px
-
-# # Load environment variables
-# load_dotenv()
-
-# # Supported file types
-# SUPPORTED_EXTENSIONS = ['.json', '.pdf', '.png', '.jpeg', '.jpg', '.txt', 
-#                         '.xlsx', '.csv', '.zip', '.tar.gz', '.mp3', 
-#                         '.pdb', '.pptx', '.jsonld', '.docx', '.py']
-
-# # Function to extract text from different file types
-# def extract_text_from_file(file_path):
-#     _, ext = os.path.splitext(file_path)
-#     ext = ext.lower()
-
-#     try:
-#         if ext == '.txt':
-#             with open(file_path, 'r', encoding='utf-8') as f:
-#                 return f.read()
-#         elif ext == '.pdf':
-#             text = ""
-#             with open(file_path, 'rb') as f:
-#                 reader = PyPDF2.PdfReader(f)
-#                 for page in reader.pages:
-#                     page_text = page.extract_text()
-#                     if page_text:
-#                         text += page_text + "\n"
-#             return text
-#         elif ext == '.docx':
-#             doc = docx.Document(file_path)
-#             return "\n".join([para.text for para in doc.paragraphs])
-#         elif ext in ['.xlsx', '.csv']:
-#             if ext == '.xlsx':
-#                 df = pd.read_excel(file_path)
-#             else:
-#                 df = pd.read_csv(file_path)
-#             return df.to_string()
-#         elif ext in ['.png', '.jpg', '.jpeg']:
-#             image = Image.open(file_path)
-#             text = pytesseract.image_to_string(image, lang='chi_tra')  # Using Traditional Chinese language pack
-#             return text
-#         else:
-#             return f"Unsupported file type: {ext}"
-#     except Exception as e:
-#         return f"Error processing file: {e}"
-
-# # Initialize Streamlit session state
-# if 'comparison_result' not in st.session_state:
-#     st.session_state.comparison_result = None
-# if 'openai_response' not in st.session_state:
-#     st.session_state.openai_response = ""
-# if 'final_answer' not in st.session_state:
-#     st.session_state.final_answer = ""
-# if 'steps' not in st.session_state:
-#     st.session_state.steps = ""
-# if 'selected_task_id' not in st.session_state:
-#     st.session_state.selected_task_id = ""
-# if 'associated_files' not in st.session_state:
-#     st.session_state.associated_files = []
-# if 'evaluation_submitted' not in st.session_state:
-#     st.session_state.evaluation_submitted = False
-
-# # Streamlit App
-# st.title("Task ID Matcher with OpenAI Evaluation and Feedback")
-
-# # Get AWS bucket name from .env
-# bucket_name = os.getenv('AWS_BUCKET')
-
-# # 1. Get metadata task_ids and questions from SQL Server
-# metadata = get_metadata_from_sql()
-# metadata_task_ids = [record['task_id'] for record in metadata]
-# questions_dict = {record['task_id']: record['Question'] for record in metadata}
-# final_answers_dict = {record['task_id']: record['Final answer'] for record in metadata}
-# steps_dict = {record['task_id']: record['Steps'] for record in metadata}
-# number_of_steps_dict = {record['task_id']: record['Number of steps'] for record in metadata}
-# how_long_did_this_take_dict = {record['task_id']: record['How long did this take?'] for record in metadata}
-# tools_dict = {record['task_id']: record['Tools'] for record in metadata}
-# number_of_tools_dict = {record['task_id']: record['Number of tools'] for record in metadata}
-
-# st.write("### Metadata Task IDs:", metadata_task_ids)
-
-# # 2. Get files from AWS S3
-# s3_files = get_files_from_s3(bucket_name)
-# st.write("### S3 Files:", s3_files)
-
-# # 3. Match metadata and S3 Task IDs
-# def match_task_ids(metadata_task_ids, s3_files):
-#     task_id_to_files = {}
-#     for task_id in metadata_task_ids:
-#         # Assuming file names start with task_id, e.g., "task123_file.pdf"
-#         matched_files = [file for file in s3_files if file.startswith(task_id)]
-#         # Filter supported file types
-#         matched_files = [file for file in matched_files 
-#                         if any(file.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS)]
-#         if matched_files:
-#             task_id_to_files[task_id] = matched_files
-#     return task_id_to_files
-
-# matched_task_ids_dict = match_task_ids(metadata_task_ids, s3_files)
-# matched_task_ids = list(matched_task_ids_dict.keys())
-# st.write("### Matched Task IDs:", matched_task_ids)
-
-# # 4. Select Task ID to query OpenAI
-# selected_task_id = st.selectbox("Select a Task ID to Process", matched_task_ids)
-# st.session_state.selected_task_id = selected_task_id  # Store in session state
-
-# # 5. Display associated files
-# if selected_task_id:
-#     associated_files = matched_task_ids_dict[selected_task_id]
-#     st.session_state.associated_files = associated_files
-#     st.write(f"### Files Associated with Task ID {selected_task_id}:", associated_files)
-# else:
-#     st.session_state.associated_files = []
-
-# # 6. Send question and file content to OpenAI
-# if st.button("Send Question to OpenAI"):
-#     if selected_task_id and st.session_state.associated_files:
-#         question = questions_dict[selected_task_id]
-#         final_answer = final_answers_dict[selected_task_id]
-#         steps = steps_dict[selected_task_id]
-#         number_of_steps = number_of_steps_dict[selected_task_id]
-#         how_long_did_this_take = how_long_did_this_take_dict[selected_task_id]
-#         tools = tools_dict[selected_task_id]
-#         number_of_tools = number_of_tools_dict[selected_task_id]
-        
-#         st.session_state.final_answer = final_answer
-#         st.session_state.steps = steps
-#         extracted_contents = []
-        
-#         # Create a temporary directory to download files
-#         with tempfile.TemporaryDirectory() as tmpdir:
-#             for file_key in st.session_state.associated_files:
-#                 # Download file
-#                 local_path = os.path.join(tmpdir, os.path.basename(file_key))
-#                 download_file_from_s3(bucket_name, file_key, local_path)
-                
-#                 # Extract file content
-#                 content = extract_text_from_file(local_path)
-#                 extracted_contents.append(f"File: {file_key}\nContent:\n{content}\n")
-        
-#         # Aggregate all file contents
-#         aggregated_content = "\n".join(extracted_contents)
-        
-#         # Combine prompt with steps
-#         prompt = f"{aggregated_content}\nSteps:\n{steps}\nQuestion: {question}"
-        
-#         # Send to OpenAI and get response
-#         result = send_to_openai(prompt)
-#         st.session_state.openai_response = result
-        
-#         # Compare OpenAI's answer with the final answer
-#         if result.strip().lower() == final_answer.strip().lower():
-#             st.session_state.comparison_result = "correct"
-#             st.success("OpenAI's answer matches the Final answer.")
-#         else:
-#             st.session_state.comparison_result = "incorrect"
-#             st.error("OpenAI's answer does NOT match the Final answer.")
-        
-#         # Display OpenAI's response
-#         st.write("### OpenAI's Response:")
-#         st.write(result)
-        
-#         # Display Final Answer
-#         st.write("### Final Answer from Metadata:")
-#         st.write(final_answer)
-#     else:
-#         st.write("No Task ID or associated files selected.")
-
-# # 7. If the answer is incorrect, provide option to modify Steps and capture feedback
-# if st.session_state.comparison_result == "incorrect":
-#     st.write("### Modify Steps and Provide Feedback")
-    
-#     # Text area to modify Steps
-#     new_steps = st.text_area("Edit the Steps below:", value=st.session_state.steps, height=200)
-    
-#     # Text area to provide feedback
-#     user_feedback = st.text_area("Provide your feedback on the OpenAI response:", height=150)
-    
-#     # Button to save modified Steps and feedback
-#     if st.button("Save Modified Steps and Submit Feedback"):
-#         if new_steps.strip() == "":
-#             st.error("Steps cannot be empty.")
-#         else:
-#             # Update the Steps in the metadata (SQL)
-#             update_success = update_metadata_steps(selected_task_id, new_steps)
-#             if update_success:
-#                 st.success("Steps updated successfully.")
-#                 st.session_state.steps = new_steps
-#                 # Insert evaluation into Evaluations table
-#                 feedback_success = insert_evaluation(
-#                     task_id=selected_task_id,
-#                     is_correct=False,
-#                     user_feedback=user_feedback.strip() if user_feedback else None
-#                 )
-#                 if feedback_success:
-#                     st.success("Your feedback has been recorded.")
-#                 else:
-#                     st.error("Failed to record your feedback. Please try again.")
-#                 # Reset comparison result to allow re-evaluation
-#                 st.session_state.comparison_result = None
-#             else:
-#                 st.error("Failed to update Steps. Please try again.")
-    
-#     # Option to re-evaluate after modifying steps
-#     if st.session_state.comparison_result != "incorrect":
-#         if st.button("Re-send Question to OpenAI with Modified Steps"):
-#             # Re-run the evaluation with updated steps
-#             question = questions_dict[selected_task_id]
-#             final_answer = final_answers_dict[selected_task_id]
-#             steps = st.session_state.steps
-#             number_of_steps = number_of_steps_dict[selected_task_id]
-#             how_long_did_this_take = how_long_did_this_take_dict[selected_task_id]
-#             tools = tools_dict[selected_task_id]
-#             number_of_tools = number_of_tools_dict[selected_task_id]
-#             extracted_contents = []
-            
-#             with tempfile.TemporaryDirectory() as tmpdir:
-#                 for file_key in st.session_state.associated_files:
-#                     local_path = os.path.join(tmpdir, os.path.basename(file_key))
-#                     download_file_from_s3(bucket_name, file_key, local_path)
-#                     content = extract_text_from_file(local_path)
-#                     extracted_contents.append(f"File: {file_key}\nContent:\n{content}\n")
-            
-#             aggregated_content = "\n".join(extracted_contents)
-#             prompt = f"{aggregated_content}\nSteps:\n{steps}\nQuestion: {question}"
-#             result = send_to_openai(prompt)
-#             st.session_state.openai_response = result
-            
-#             if result.strip().lower() == final_answer.strip().lower():
-#                 st.session_state.comparison_result = "correct"
-#                 st.success("OpenAI's answer matches the Final answer.")
-#             else:
-#                 st.session_state.comparison_result = "incorrect"
-#                 st.error("OpenAI's answer does NOT match the Final answer.")
-            
-#             # Display OpenAI's response
-#             st.write("### OpenAI's Response:")
-#             st.write(result)
-            
-#             # Display Final Answer
-#             st.write("### Final Answer from Metadata:")
-#             st.write(final_answer)
-
-# # 8. Generate Reports and Visualizations
-# st.header("### Evaluation Reports and Visualizations")
-
-# # Fetch evaluations data
-# evaluations = get_evaluations()
-# if evaluations:
-#     eval_df = pd.DataFrame(evaluations)
-    
-#     # Display basic metrics
-#     total_evaluations = len(eval_df)
-#     correct_answers = eval_df['is_correct'].sum()
-#     incorrect_answers = total_evaluations - correct_answers
-    
-#     st.subheader("Summary Metrics")
-#     st.write(f"**Total Evaluations:** {total_evaluations}")
-#     st.write(f"**Correct Answers:** {correct_answers}")
-#     st.write(f"**Incorrect Answers:** {incorrect_answers}")
-    
-#     # Pie Chart for Correct vs Incorrect
-#     fig_pie = px.pie(
-#         names=['Correct', 'Incorrect'],
-#         values=[correct_answers, incorrect_answers],
-#         title='Distribution of OpenAI Responses',
-#         color=['Correct', 'Incorrect'],
-#         color_discrete_map={'Correct':'green', 'Incorrect':'red'}
-#     )
-#     st.plotly_chart(fig_pie)
-    
-#     # Bar Chart of Evaluations Over Time
-#     eval_df['evaluation_date'] = pd.to_datetime(eval_df['evaluation_timestamp']).dt.date
-#     eval_by_date = eval_df.groupby('evaluation_date').size().reset_index(name='count')
-#     fig_bar = px.bar(
-#         eval_by_date, 
-#         x='evaluation_date', 
-#         y='count',
-#         title='Number of Evaluations Over Time',
-#         labels={'evaluation_date': 'Date', 'count': 'Number of Evaluations'},
-#         template='plotly_white'
-#     )
-#     st.plotly_chart(fig_bar)
-    
-#     # Feedback Word Cloud (Optional)
-#     # Requires installation of wordcloud and additional setup
-#     try:
-#         from wordcloud import WordCloud
-#         import matplotlib.pyplot as plt
-        
-#         feedback_text = ' '.join(eval_df['user_feedback'].dropna().tolist())
-#         if feedback_text:
-#             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(feedback_text)
-#             fig_wc, ax_wc = plt.subplots(figsize=(10, 5))
-#             ax_wc.imshow(wordcloud, interpolation='bilinear')
-#             ax_wc.axis('off')
-#             st.pyplot(fig_wc)
-#         else:
-#             st.write("No user feedback available for word cloud.")
-#     except ImportError:
-#         st.write("WordCloud module not installed. Install it using `pip install wordcloud` to see feedback word clouds.")
-    
-#     # Table of Evaluations
-#     st.subheader("Detailed Evaluations")
-#     st.dataframe(eval_df[['evaluation_id', 'task_id', 'is_correct', 'user_feedback', 'evaluation_timestamp']])
-    
-# else:
-#     st.write("No evaluations recorded yet.")
-
-# # Optional: Display Annotator Metadata
-# if selected_task_id:
-#     st.write("### Annotator Metadata:")
-#     annotator_metadata = {
-#         'Steps': steps_dict[selected_task_id],
-#         'Number of steps': number_of_steps_dict[selected_task_id],
-#         'How long did this take?': how_long_did_this_take_dict[selected_task_id],
-#         'Tools': tools_dict[selected_task_id],
-#         'Number of tools': number_of_tools_dict[selected_task_id]
-#     }
-#     st.json(annotator_metadata)
-
-
-
-
-
-
+# Import necessary libraries
 import streamlit as st
-from sql_module import get_metadata_from_sql, insert_evaluation, get_evaluations
+from sql_module import (
+    get_metadata_from_sql,
+    update_metadata_steps,
+    insert_evaluation,
+    get_evaluations
+)
 from openai_module import send_to_openai
+from aws_module import get_files_from_s3
+import tempfile
+import easyocr
+import PyPDF2
+import docx
+import pandas as pd
+import zipfile
+import os
+import openpyxl
+import plotly.express as px
+from dotenv import load_dotenv
+import boto3
+import easyocr  # Added EasyOCR
 
-# 初始化 session_state 变量
-if 'openai_response' not in st.session_state:
-    st.session_state.openai_response = None  # OpenAI 答案
-if 'user_feedback' not in st.session_state:
-    st.session_state.user_feedback = ""  # 用户反馈
-if 'is_satisfied' not in st.session_state:
-    st.session_state.is_satisfied = None  # 满意状态
-if 'selected_task_id' not in st.session_state:
-    st.session_state.selected_task_id = None  # 当前选择的任务ID
-if 'feedback_history' not in st.session_state:
-    st.session_state.feedback_history = []  # 当前问题的反馈历史
+# Load environment variables
+load_dotenv()
 
-# 从数据库获取问题和元数据
-metadata = get_metadata_from_sql()
-questions_dict = {record['task_id']: record['Question'] for record in metadata}
-final_answer_dict = {record['task_id']: record['Final answer'] for record in metadata}
+# Define a consistent color palette
+COLOR_PALETTE = {
+    'green': '#2ca02c',
+    'red': '#d62728',
+    'blue': '#1f77b4',
+    'orange': '#ff7f0e',
+    'purple': '#9467bd',
+    'cyan': '#17becf',
+    'grey': '#7f7f7f'
+}
 
-# 显示问题下拉框
-selected_question = st.selectbox("Select a Question to process", list(questions_dict.values()))
+# Supported file types
+SUPPORTED_EXTENSIONS = [
+    '.json', '.pdf', '.png', '.jpeg', '.jpg', '.txt',
+    '.xlsx', '.csv', '.pptx', '.docx', '.py', '.zip', '.pdb'
+]
 
-# 当用户选择了问题后，更新 task_id
-if selected_question:
-    selected_task_id = [task_id for task_id, question in questions_dict.items() if question == selected_question][0]
-    
-    # 如果选择了新问题，重置相关状态
-    if selected_task_id != st.session_state.selected_task_id:
-        st.session_state.selected_task_id = selected_task_id
-        st.session_state.openai_response = None
-        st.session_state.is_satisfied = None
-        st.session_state.user_feedback = ""
-        st.session_state.feedback_history = []  # 重置当前问题的反馈历史
+# Initialize EasyOCR reader
+reader = easyocr.Reader(['en'], gpu=False)  # Set gpu=True if you have a compatible GPU
 
-# 处理 OpenAI 回答逻辑
-if st.session_state.selected_task_id:
-    question = questions_dict[st.session_state.selected_task_id]
-    
-    # 发送问题至 OpenAI 或展示已有的 OpenAI 答案
-    if st.button("Send Question to OpenAI") or st.session_state.openai_response:
-        if st.session_state.openai_response is None:
-            st.session_state.openai_response = send_to_openai(question)
-        
-        # 获取数据库中的最终答案
-        final_answer = final_answer_dict.get(st.session_state.selected_task_id, "No final answer available in metadata.")
+# Function to extract text from different file types
+def extract_text_from_file(file_path):
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
 
-        # 以表格形式呈现数据库答案和 OpenAI 答案
-        st.subheader("Comparison of OpenAI Answer and Final Answer from Metadata")
-        answer_data = {
-            "OpenAI Answer": [st.session_state.openai_response],
-            "Metadata Answer": [final_answer]
-        }
-        st.table(answer_data)
+    try:
+        if ext == '.txt':
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
 
-        # 用户输入是否满意 (Yes or No)
-        satisfaction = st.text_input("Is the OpenAI response satisfactory? (Enter 'Yes' or 'No')", key="satisfaction_input")
+        elif ext == '.pdf':
+            text = ""
+            with open(file_path, 'rb') as f:
+                reader_pdf = PyPDF2.PdfReader(f)
+                for page in reader_pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            return text
 
-        # 处理用户选择 "No" 的情况
-        if satisfaction.lower() == "no":
-            # 显示用户输入反馈框
-            user_feedback = st.text_area("Provide Feedback or Modify OpenAI Answer", st.session_state.user_feedback, key="feedback_area")
-            if st.button("Submit Feedback"):
-                # 记录用户反馈
-                st.session_state.feedback_history.append({
-                    'question': question,
-                    'openai_response': st.session_state.openai_response,
-                    'feedback': user_feedback
-                })
-                
-                # 生成新的 OpenAI 回答
-                st.session_state.openai_response = send_to_openai(user_feedback)
+        elif ext == '.docx':
+            doc = docx.Document(file_path)
+            return "\n".join([para.text for para in doc.paragraphs])
 
-                # 重新以表格形式显示新的 OpenAI 答案和数据库答案
-                st.subheader("Updated Comparison of OpenAI Answer and Metadata Answer")
-                updated_answer_data = {
-                    "OpenAI Answer": [st.session_state.openai_response],
-                    "Metadata Answer": [final_answer]
-                }
-                st.table(updated_answer_data)
-                st.info("You can modify the feedback and re-evaluate.")
+        elif ext == '.csv':
+            df = pd.read_csv(file_path)
+            return df.to_csv(index=False)
 
-        # 处理用户选择 "Yes" 的情况
-        if satisfaction.lower() == "yes":
-            st.session_state.is_satisfied = True
-            insert_evaluation(st.session_state.selected_task_id, True, st.session_state.user_feedback)
-            st.success("You are satisfied. Below is the complete interaction for this question:")
+        elif ext == '.xlsx':
+            try:
+                df = pd.read_excel(file_path, engine='openpyxl')
+                st.dataframe(df.head())
 
-            # 输出完整的交互历史，并以表格形式呈现
-            feedback_history_data = [{
-                'Round': idx + 1,
-                'Question': record['question'],
-                'OpenAI Response': record['openai_response'],
-                'User Feedback': record['feedback']
-            } for idx, record in enumerate(st.session_state.feedback_history)]
+                # Convert the dataframe to a CSV string
+                csv_representation = df.to_csv(index=False)
+                return csv_representation
 
-            # 展示历史反馈表格
-            st.table(feedback_history_data)
+            except Exception as e:
+                st.error(f"Error processing Excel file: {e}")
+                return f"Error processing Excel file: {e}"
 
-            # 从数据库中获取评估数据，并只展示当前问题的评估记录
-            evaluation_data = get_evaluations()  # 获取所有评估记录
-            filtered_data = [e for e in evaluation_data if e['task_id'] == st.session_state.selected_task_id]  # 只显示当前选中任务的记录
-            st.table(filtered_data)
+        elif ext in ['.png', '.jpg', '.jpeg']:
+            try:
+                # Use EasyOCR to extract text from the image
+                result = reader.readtext(file_path, detail=0)
+                text = ' '.join(result)
+                return text
+            except Exception as e:
+                st.error(f"Error processing image file: {e}")
+                return f"Error processing image file: {e}"
+
+        elif ext == '.py':
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except UnicodeDecodeError:
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    return f.read()
+            except Exception as e:
+                return f"Error processing .py file: {e}"
+
+        elif ext == '.pptx':
+            from pptx import Presentation
+            prs = Presentation(file_path)
+            text_runs = []
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text_runs.append(shape.text)
+            return "\n".join(text_runs)
+
+        elif ext == '.zip':
+            text = ""
+            with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    zip_ref.extractall(tmpdir)
+                    for root, _, files in os.walk(tmpdir):
+                        for file in files:
+                            file_path_inner = os.path.join(root, file)
+                            if os.path.splitext(file_path_inner)[1].lower() in SUPPORTED_EXTENSIONS:
+                                extracted_text = extract_text_from_file(file_path_inner)
+                                text += extracted_text + "\n"
+                            else:
+                                text += f"Skipped unsupported file: {file_path_inner}\n"
+            return text
+
+        elif ext == '.pdb':
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                return f"Error processing .pdb file: {e}"
+
+        else:
+            return f"Unsupported file type: {ext}"
+
+    except Exception as e:
+        return f"Error processing file: {e}"
+
+# Initialize Streamlit session state
+def initialize_session_state():
+    session_keys = [
+        'comparison_result',
+        'openai_response',
+        'final_answer',
+        'steps',
+        'selected_task_id',
+        'show_feedback_form',
+        'show_rerun_button',
+        'modified_steps',
+        'awaiting_rerun_satisfaction',
+        'awaiting_feedback'
+    ]
+    for key in session_keys:
+        if key not in st.session_state:
+            if key in ['comparison_result', 'show_feedback_form', 'show_rerun_button', 'awaiting_rerun_satisfaction', 'awaiting_feedback']:
+                st.session_state[key] = False
+            else:
+                st.session_state[key] = ""
+
+initialize_session_state()
+
+# Custom CSS for styling
+st.markdown("""
+    <style>
+    /* Global styles */
+    body {
+        font-family: 'Arial', sans-serif;
+        font-size: 18px;
+        color: #ffffff;
+        background-color: #000000;
+    }
+
+    /* Header styles */
+    h1 {
+        font-size: 40px;
+        font-weight: bold;
+        color: #ffffff;
+        text-align: center;
+    }
+
+    h2, h3 {
+        color: #ffffff;
+    }
+
+    /* Paragraph and div styles */
+    p, div {
+        font-size: 18px;
+        color: #ffffff;
+    }
+
+    /* Table styling */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 14px;
+        text-align: left;
+        border-bottom: 1px solid #444444;
+        font-size: 16px;
+        color: #ffffff;
+    }
+
+    th {
+        background-color: #333333;
+        color: #ffffff;
+    }
+
+    /* Button styling */
+    .stButton > button {
+        background-color: #444444;
+        color: #ffffff;
+        border-radius: 10px;
+        border: 1px solid #ffffff;
+    }
+
+    /* Selectbox styling */
+    .stSelectbox > div {
+        background-color: #333333;
+        color: #ffffff;
+        border: 1px solid #ffffff;
+        border-radius: 5px;
+    }
+
+    /* Dataframe styling */
+    .stDataFrame {
+        background-color: #333333;
+        color: #ffffff;
+        border: 1px solid #ffffff;
+        border-radius: 5px;
+    }
+
+    /* Sidebar styling */
+    .sidebar .sidebar-content {
+        background-color: #333333;
+    }
+
+    /* App container background */
+    .stApp {
+        background-color: #000000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Streamlit App Layout
+
+# Sidebar for navigation and branding
+with st.sidebar:
+    st.image("https://streamlit.io/images/brand/streamlit-logo-primary-colormark-darktext.png", width=150)
+    st.header("Navigation")
+    st.write("Use the main page to process Task IDs and evaluate OpenAI responses.")
+    st.markdown("---")
+    st.header("Settings")
+    # Future settings can be added here
+
+# Main Page Header
+st.markdown("""
+    <h1>
+        OpenAI Service Evaluation and Feedback Dashboard
+    </h1>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
+
+# Main Content Container
+with st.container():
+    # 1. Get metadata task_ids and questions from SQL Server
+    metadata = get_metadata_from_sql()
+    metadata_task_ids = [record['task_id'] for record in metadata]
+    questions_dict = {record['task_id']: record['Question'] for record in metadata}
+    final_answers_dict = {record['task_id']: record['Final answer'] for record in metadata}
+    steps_dict = {record['task_id']: record['Steps'] for record in metadata}
+
+    # 2. Get files from AWS S3 and create a mapping of task_ids to their files
+    bucket_name = os.getenv('AWS_BUCKET')
+    s3_files = get_files_from_s3(bucket_name)
+
+    # Create a mapping from task_id to list of files (in case there are multiple files per task_id)
+    task_files_mapping = {}
+    for file_name in s3_files:
+        # Extract task_id and file extension
+        file_base_name, file_ext = os.path.splitext(file_name)
+        if file_base_name in metadata_task_ids:
+            if file_base_name not in task_files_mapping:
+                task_files_mapping[file_base_name] = []
+            task_files_mapping[file_base_name].append({'file_name': file_name, 'file_ext': file_ext.lower()})
+
+    # 3. Match metadata task IDs with task IDs that have files
+    matched_task_ids = list(task_files_mapping.keys())
+
+    # 4. Select Task ID to query OpenAI
+    # Do not select a default value; user must select a task ID
+    selected_task_id = st.selectbox("Select a Task ID to Process", [""] + matched_task_ids)
+    st.session_state.selected_task_id = selected_task_id  # Store in session state
+
+    if selected_task_id:
+        # 5. Display the "Question" for the selected Task ID
+        question = questions_dict[selected_task_id]
+        st.markdown("### Question")
+        st.write(question)
+
+        # Initialize S3 client
+        s3_client = boto3.client('s3')
+        bucket_name = os.getenv('AWS_BUCKET')
+
+        # Get the list of files associated with the selected task_id
+        files_info = task_files_mapping.get(selected_task_id, [])
+
+        # Initialize extracted_text
+        extracted_text = ""
+
+        # Process the files if any
+        if files_info:
+            for file_info in files_info:
+                file_name = file_info['file_name']
+                file_ext = file_info['file_ext']
+
+                file_key = file_name  # The key in S3 is the file name
+
+                # Retrieve and process the file from S3
+                try:
+                    if file_ext in SUPPORTED_EXTENSIONS:
+                        # Download the file locally
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                            s3_client.download_fileobj(bucket_name, file_key, tmp_file)
+                            tmp_file_path = tmp_file.name
+
+                        # Extract text from the file
+                        file_extracted_text = extract_text_from_file(tmp_file_path)
+                        extracted_text += f"Extracted Text from {file_name}:\n{file_extracted_text}\n"
+
+                    else:
+                        st.write(f"Skipping unsupported file type for {file_name}")
+
+                except Exception as e:
+                    st.error(f"Error retrieving or processing the file {file_name} from S3: {e}")
+
+        else:
+            st.write("No associated files to process for this task.")
+
+    # 6. Send question to OpenAI
+    if st.button("Send Question to OpenAI", key="send_to_openai_button"):
+        if selected_task_id:
+            final_answer = final_answers_dict[selected_task_id]
+            steps = steps_dict[selected_task_id]
+
+            st.session_state.final_answer = final_answer
+            st.session_state.steps = steps
+
+            # Combine prompt with steps and extracted text if available
+            prompt = f"Steps:\n{steps}\n\nQuestion:\n{question}\n"
+            if extracted_text:
+                prompt += f"\nExtracted Text:\n{extracted_text}"
+
+            # Send to OpenAI and get response
+            with st.spinner("Sending request to OpenAI..."):
+                try:
+                    result = send_to_openai(prompt)
+                    st.session_state.openai_response = result
+
+                    # Display OpenAI's response
+                    st.markdown("### OpenAI's Response")
+                    st.write(result)
+
+                    # Display Final Answer
+                    st.markdown("### Final Answer from Metadata")
+                    st.write(final_answer)
+
+                    # Reset rerun and feedback states
+                    st.session_state.awaiting_rerun_satisfaction = False
+                    st.session_state.awaiting_feedback = False
+                except Exception as e:
+                    st.error(f"An error occurred while communicating with OpenAI: {e}")
+
+    # 7. User feedback on OpenAI response
+    if (
+        st.session_state.openai_response
+        and not st.session_state.awaiting_feedback
+        and not st.session_state.awaiting_rerun_satisfaction
+    ):
+        st.markdown("---")
+        satisfaction = st.radio(
+            "Is the OpenAI response satisfactory?", ("Yes", "No"), key="satisfaction_radio"
+        )
+
+        # Button for submitting feedback
+        if st.button("Confirm Satisfaction", key="confirm_satisfaction_button"):
+            if satisfaction == "No":
+                # Trigger the feedback form display
+                st.session_state.show_feedback_form = True
+            elif satisfaction == "Yes":
+                # Insert evaluation as correct without feedback
+                st.markdown("**Submitting evaluation as correct...**")
+                try:
+                    insert_success = insert_evaluation(
+                        task_id=selected_task_id,
+                        is_correct=True,
+                        user_feedback=None
+                    )
+                    if insert_success:
+                        st.success("Evaluation recorded successfully.")
+                        # Reset response and satisfaction state
+                        st.session_state.openai_response = ""
+                    else:
+                        st.error("Failed to record evaluation.")
+                except Exception as e:
+                    st.error(f"An error occurred while recording evaluation: {e}")
+
+    # 8. Show feedback form if the user selected "No"
+    if st.session_state.show_feedback_form and not st.session_state.awaiting_feedback:
+        st.markdown("---")
+        st.markdown("### Modify Steps and Provide Feedback")
+        # Display editable steps
+        new_steps = st.text_area(
+            "Edit the Steps below:",
+            value=st.session_state.steps,
+            height=200,
+            key="edit_steps_textarea"
+        )
+        st.session_state.modified_steps = new_steps  # Store modified steps
+
+        # Button to save modified steps and show rerun button
+        if st.button("Save Modified Steps", key="save_modified_steps_button"):
+            if st.session_state.modified_steps.strip() == "":
+                st.error("Steps cannot be empty.")
+            else:
+                # Update the Steps in the metadata (SQL)
+                try:
+                    update_success = update_metadata_steps(
+                        selected_task_id, st.session_state.modified_steps
+                    )
+                    if update_success:
+                        st.success("Steps updated successfully.")
+                        st.session_state.steps = st.session_state.modified_steps
+                        st.session_state.show_feedback_form = False  # Hide feedback form after saving
+                        st.session_state.show_rerun_button = True  # Show rerun model button
+                    else:
+                        st.error("Failed to update Steps. Please try again.")
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
+
+    # 9. Show rerun model button if steps are modified
+    if st.session_state.show_rerun_button and not st.session_state.awaiting_feedback:
+        if st.button("Rerun Model", key="rerun_model_button"):
+            # Combine prompt with modified steps and extracted text
+            prompt = f"Steps:\n{st.session_state.modified_steps}\n\nQuestion:\n{question}\n"
+            if extracted_text:
+                prompt += f"\nExtracted Text:\n{extracted_text}"
+
+            # Send to OpenAI and get new response
+            with st.spinner("Rerunning the model with modified steps..."):
+                try:
+                    new_result = send_to_openai(prompt)
+                    st.session_state.openai_response = new_result
+
+                    # Display new OpenAI's response
+                    st.markdown("### New OpenAI's Response")
+                    st.write(new_result)
+
+                    # Optionally, display Final Answer again
+                    st.markdown("### Final Answer from Metadata")
+                    st.write(final_answers_dict[selected_task_id])
+
+                    # Reset rerun button and set flag to await satisfaction
+                    st.session_state.show_rerun_button = False
+                    st.session_state.awaiting_rerun_satisfaction = True
+                except Exception as e:
+                    st.error(f"An error occurred while rerunning the model: {e}")
+
+    # 10. Handle Satisfaction Prompt After Rerun
+    if (
+        st.session_state.awaiting_rerun_satisfaction
+        and not st.session_state.awaiting_feedback
+    ):
+        st.markdown("---")
+        rerun_satisfaction = st.radio(
+            "Is the new OpenAI response satisfactory?",
+            ("Yes", "No"),
+            key="rerun_satisfaction_radio"
+        )
+
+        if st.button("Confirm Rerun Satisfaction", key="confirm_rerun_satisfaction_button"):
+            if rerun_satisfaction == "Yes":
+                # Insert evaluation as correct without feedback
+                st.markdown("**Submitting evaluation as correct...**")
+                try:
+                    insert_success = insert_evaluation(
+                        task_id=selected_task_id,
+                        is_correct=True,
+                        user_feedback=None
+                    )
+                    if insert_success:
+                        st.success("Evaluation recorded successfully.")
+                        # Reset response and satisfaction state
+                        st.session_state.openai_response = ""
+                        st.session_state.awaiting_rerun_satisfaction = False
+                    else:
+                        st.error("Failed to record evaluation.")
+                except Exception as e:
+                    st.error(f"An error occurred while recording evaluation: {e}")
+            elif rerun_satisfaction == "No":
+                # Allow user to provide feedback
+                st.session_state.awaiting_feedback = True
+                st.session_state.awaiting_rerun_satisfaction = False
+
+    # 11. Handle Feedback Submission After Rerun
+    if st.session_state.awaiting_feedback:
+        st.markdown("---")
+        user_feedback = st.text_area(
+            "Provide your feedback on the OpenAI response:",
+            height=150,
+            key="user_feedback_textarea"
+        )
+
+        if st.button("Submit Feedback", key="submit_feedback_button"):
+            st.markdown("**Attempting to save feedback...**")
+            if user_feedback.strip() == "":
+                st.error("Feedback cannot be empty.")
+            else:
+                # Insert evaluation into Evaluations table with feedback
+                try:
+                    feedback_success = insert_evaluation(
+                        task_id=selected_task_id,
+                        is_correct=False,
+                        user_feedback=user_feedback.strip()
+                    )
+                    if feedback_success:
+                        st.success("Your feedback has been recorded.")
+                        # Reset feedback and response states
+                        st.session_state.awaiting_feedback = False
+                        st.session_state.openai_response = ""
+                    else:
+                        st.error("Failed to record your feedback.")
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
+
+    # 12. Generate Reports and Visualizations
+    st.markdown("---")
+    st.header("Evaluation Reports and Visualizations")
+
+    # Fetch evaluations data
+    evaluations = get_evaluations()
+    if evaluations:
+        eval_df = pd.DataFrame(evaluations)
+
+        # Display basic metrics
+        total_evaluations = len(eval_df)
+        correct_answers = eval_df['is_correct'].sum()
+        incorrect_answers = total_evaluations - correct_answers
+
+        st.subheader("Summary Metrics")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Evaluations", total_evaluations, "")
+        col2.metric("Correct Answers", correct_answers, f"{(correct_answers / total_evaluations) * 100:.2f}%")
+        col3.metric("Incorrect Answers", incorrect_answers, f"{(incorrect_answers / total_evaluations) * 100:.2f}%")
+
+        # Pie Chart for Correct vs Incorrect
+        fig_pie = px.pie(
+            names=['Correct', 'Incorrect'],
+            values=[correct_answers, incorrect_answers],
+            title='Distribution of OpenAI Responses',
+            color=['Correct', 'Incorrect'],
+            color_discrete_map={
+                'Correct': COLOR_PALETTE['green'],
+                'Incorrect': COLOR_PALETTE['red']
+            }
+        )
+        fig_pie.update_layout(
+            paper_bgcolor='#000000',
+            plot_bgcolor='#000000',
+            font=dict(color='#ffffff'),
+            title_font=dict(size=20, color='#ffffff')
+        )
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Additional charts and analysis can be added here
+
+        # Table of Evaluations
+        st.subheader("Detailed Evaluations")
+        st.dataframe(
+            eval_df[['evaluation_id', 'task_id', 'is_correct', 'user_feedback', 'evaluation_timestamp']],
+            height=300
+        )
+    else:
+        st.write("No evaluations recorded yet.")
