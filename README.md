@@ -2,7 +2,7 @@
 
 This project is a data processing and analysis pipeline that integrates various technologies including AWS S3, SQL Server, Streamlit, and OpenAI's API. It enables the storage, retrieval, and processing of both structured metadata and unstructured task files, and provides a user interface for interacting with these data sources.
 
-Attestation and Contribution Declaration:
+## Attestation and Contribution Declaration:
 WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR
 ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK
 Contribution:
