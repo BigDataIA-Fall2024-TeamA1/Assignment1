@@ -4,7 +4,6 @@ filetype==1.2.0
 openai==1.50.0
 pandas==1.5.3
 Pillow==10.4.0
-pyodbc==5.1.0
 pytesseract==0.3.13
 python-dotenv==1.0.1
 Requests==2.32.3
