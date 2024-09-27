@@ -1,19 +1,27 @@
 import pyodbc
 import json
+import os
+from dotenv import load_dotenv
 
-# SQL Server 連接設定
-server = 'LAPTOP-GD5THE3N'  # SQL Server 主機
-database = 'big_data_assignment1'  # 資料庫名稱
-driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC 驅動
+# 加载 .env 文件中的环境变量
+load_dotenv()
 
-# 建立連接
-connection = pyodbc.connect(f'DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;')
+# 从 .env 文件中读取 SQL Server 配置信息
+server = os.getenv('SQL_SERVER')  # SQL Server 地址
+database = os.getenv('SQL_DATABASE')  # 数据库名称
+username = os.getenv('SQL_USER')  # 用户名
+password = os.getenv('SQL_PASSWORD')  # 密码
+driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC 驱动
+
+# 建立 SQL Server 连接
+connection = pyodbc.connect(f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};')
 cursor = connection.cursor()
 
+# 读取 JSON 文件
 with open('metadata.json', 'r', encoding='utf-8') as file:
     data = json.load(file)
 
-# Insert data into SQL Server
+# 插入数据到 SQL Server
 for record in data:
     task_id = record.get('task_id', '')
     question = record.get('Question', '')
@@ -28,15 +36,15 @@ for record in data:
     tools = metadata.get('Tools', '')
     number_of_tools = metadata.get('Number of tools', '')
 
-    # Execute SQL command to insert the data
+    # 执行 SQL 插入命令
     cursor.execute('''
-        INSERT INTO Tasks (task_id, Question, Level, file_name, Final_answer, Steps, Number_of_steps, How_long_did_this_take, Tools, Number_of_tools)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (task_id, question, level, file_name, final_answer, steps, number_of_steps, how_long, tools, number_of_tools))
+        INSERT INTO Tasks (Question, Level, file_name, Final_answer, Steps, Number_of_steps, How_long_did_this_take, Tools, Number_of_tools)
+        VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (question, level, file_name, final_answer, steps, number_of_steps, how_long, tools, number_of_tools))
 
-# Commit the transaction
+# 提交事务
 connection.commit()
 
-# Close the connection
+# 关闭连接
 cursor.close()
 connection.close()
