@@ -16,11 +16,15 @@ c. Kefan Zhang: 33%
 
 ## Codelabs
 
+[Click it to view it](https://docs.google.com/document/d/1VWno-QaJeqhGaypo58udlU1Fef-GXxOGoRelIDyttXA/edit#heading=h.dcfpcyumt53x
+) 
 ## Video 
 
 [Click it to watch it](https://youtu.be/pWp70t16a5o)
 
 ## Link to streamlit public cloud
+
+[Click it to access streamlit public cloud](https://teams.microsoft.com/l/message/48:notes/1727471199606?context=%7B%22contextType%22%3A%22chat%22%7D) 
 
 ## Overview
 
