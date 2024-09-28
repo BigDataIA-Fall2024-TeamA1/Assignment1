@@ -1,16 +1,12 @@
 import boto3
-import os
-from dotenv import load_dotenv
-
-# 加載 .env 文件中的環境變數
-load_dotenv()
+import streamlit as st
 
 def get_files_from_s3(bucket_name):
-    # 從環境變數中獲取 AWS 憑證
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    # 從 secrets.toml 中獲取 AWS 憑證
+    aws_access_key_id = st.secrets["aws"]["access_key_id"]
+    aws_secret_access_key = st.secrets["aws"]["secret_access_key"]
 
-    # 初始化 S3 客戶端，使用從環境變數中讀取的憑證
+    # 初始化 S3 客戶端，使用從 secrets 中讀取的憑證
     s3 = boto3.client(
         's3',
         aws_access_key_id=aws_access_key_id,

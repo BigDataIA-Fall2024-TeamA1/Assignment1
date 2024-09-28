@@ -1,18 +1,13 @@
-import os
+import streamlit as st
 import pyodbc
-from dotenv import load_dotenv
 
 def get_metadata_from_sql():
-    # Load .env file
-    load_dotenv()
-
     # SQL Server connection settings
-    ##server = os.getenv('SQL_SERVER')
-    server = os.getenv('SQL_SERVER')        # Server name
-    database = os.getenv('SQL_DATABASE')    # Database name
-    username = os.getenv('SQL_USER')        # SQL username
-    password = os.getenv('SQL_PASSWORD')    # SQL password
-    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+    server = st.secrets["sql_server"]["address"]       # Server name
+    database = st.secrets["sql_server"]["database"]    # Database name
+    username = st.secrets["sql_server"]["user"]        # SQL username
+    password = st.secrets["sql_server"]["password"]    # SQL password
+    driver = '{ODBC Driver 17 for SQL Server}'         # SQL Server ODBC driver
 
     # Establish connection using SQL Server authentication
     connection = pyodbc.connect(
@@ -52,22 +47,13 @@ def get_metadata_from_sql():
 def update_metadata_steps(task_id, new_steps):
     """
     Updates the 'Steps' field for a given task_id.
-
-    Parameters:
-    - task_id (str): The unique identifier for the task.
-    - new_steps (str): The updated steps to replace the existing ones.
-
-    Returns:
-    - bool: True if the update was successful, False otherwise.
     """
-    load_dotenv()
-
-    # Read SQL Server connection settings from environment variables
-    server = os.getenv('SQL_SERVER')        # Server name
-    database = os.getenv('SQL_DATABASE')    # Database name
-    username = os.getenv('SQL_USER')        # SQL username
-    password = os.getenv('SQL_PASSWORD')    # SQL password
-    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+    # Read SQL Server connection settings from Streamlit secrets
+    server = st.secrets["sql_server"]["address"]
+    database = st.secrets["sql_server"]["database"]
+    username = st.secrets["sql_server"]["user"]
+    password = st.secrets["sql_server"]["password"]
+    driver = '{ODBC Driver 17 for SQL Server}'
 
     try:
         # Establish connection
@@ -102,26 +88,13 @@ def update_metadata_steps(task_id, new_steps):
 def insert_evaluation(task_id, is_correct, user_feedback=None):
     """
     Inserts a new evaluation record into the Evaluations table.
-
-    Parameters:
-    - task_id (str): The unique identifier for the task.
-    - is_correct (bool): Whether the OpenAI response was correct.
-    - user_feedback (str, optional): Additional feedback from the user.
-
-    Returns:
-    - bool: True if insertion was successful, False otherwise.
     """
-    load_dotenv()
-
-    # Read SQL Server connection settings from environment variables
-    server = os.getenv('SQL_SERVER')        # Server name
-    database = os.getenv('SQL_DATABASE')    # Database name
-    username = os.getenv('SQL_USER')        # SQL username
-    password = os.getenv('SQL_PASSWORD')    # SQL password
-    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
-
-    # Establish connection
-    
+    # Read SQL Server connection settings from Streamlit secrets
+    server = st.secrets["sql_server"]["address"]
+    database = st.secrets["sql_server"]["database"]
+    username = st.secrets["sql_server"]["user"]
+    password = st.secrets["sql_server"]["password"]
+    driver = '{ODBC Driver 17 for SQL Server}'
 
     try:
         # Establish connection
@@ -156,18 +129,13 @@ def insert_evaluation(task_id, is_correct, user_feedback=None):
 def get_evaluations():
     """
     Retrieves all evaluation records from the Evaluations table.
-
-    Returns:
-    - list of dict: Each dictionary represents an evaluation record.
     """
-    load_dotenv()
-
-    # Read SQL Server connection settings from environment variables
-    server = os.getenv('SQL_SERVER')        # Server name
-    database = os.getenv('SQL_DATABASE')    # Database name
-    username = os.getenv('SQL_USER')        # SQL username
-    password = os.getenv('SQL_PASSWORD')    # SQL password
-    driver = '{ODBC Driver 17 for SQL Server}'  # SQL Server ODBC driver
+    # Read SQL Server connection settings from Streamlit secrets
+    server = st.secrets["sql_server"]["address"]
+    database = st.secrets["sql_server"]["database"]
+    username = st.secrets["sql_server"]["user"]
+    password = st.secrets["sql_server"]["password"]
+    driver = '{ODBC Driver 17 for SQL Server}'
 
     try:
         # Establish connection
