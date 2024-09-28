@@ -59,7 +59,7 @@ numba
 numpy
 openai
 openai-whisper
-opencv-python
+#opencv-python
 opencv-python-headless
 openpyxl
 packaging
